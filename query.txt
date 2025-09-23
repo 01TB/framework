@@ -1,0 +1,8 @@
+Je souhaite créer un framework maison en Java.
+Je souhaite pour l'instant implémenter que cette partie :
+Qu'importe l'URL dans le navigateur, le framework récupère l'URL
+En soit, je souhaite créer une méthode du framework permettant de récupérer n'importe quel URL 
+De ce fait, lorsque un serveur TOMCAT ne trouve pqs l'URL dans les ressources WEB (html, jsp, ...) 
+alors il cherche dans le framework.
+Je souhaite mettre ce framework en .jar et le mettre en librairie d'un petit projet qui sera déployé dans TOMCAT 10.1.28
+Comment faire ce projet? 
