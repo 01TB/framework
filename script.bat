@@ -6,11 +6,10 @@ set "SRC_DIR=src\main\java"
 set "BUILD_DIR=build"
 set "LIB_DIR=lib"
 set "SERVLET_API_JAR=%LIB_DIR%\servlet-api.jar"
+set "CLASSPATH=%SERVLET_API_JAR%;%BUILD_DIR%\classes"
 
 :: Nom du JAR à générer
 set "JAR_NAME=servlet.jar"
-
-:: (script simplifié — vérifications optionnelles supprimées)
 
 :: Helper: afficher usage
 if "%~1"=="help" (
@@ -28,7 +27,7 @@ if "%~1"=="clean" (
             echo Erreur lors de la suppression de "%BUILD_DIR%"
             exit /b 1
         ) else (
-            echo Nettoyage terminee.
+            echo Nettoyage termine.
             exit /b 0
         )
     ) else (
@@ -37,7 +36,7 @@ if "%~1"=="clean" (
     )
 )
 
-:: Créer repertoire de build
+:: Créer répertoire de build
 if exist "%BUILD_DIR%" (
     rmdir /s /q "%BUILD_DIR%"
 )
@@ -52,37 +51,33 @@ if not exist "%SRC_DIR%" (
     exit /b 1
 )
 
-:: Lancer javac (compilation directe via FOR /R)
-echo Lancement de javac (compilation directe)...
-
+:: Trouver tous les fichiers .java
 setlocal enabledelayedexpansion
-set "ERR=0"
+set "JAVA_FILES="
 set "FILE_COUNT=0"
 for /r "%SRC_DIR%" %%F in (*.java) do (
     set /a FILE_COUNT+=1
-    echo Compiling: "%%~fF"
-    javac -d "%BUILD_DIR%\classes" -classpath "%SERVLET_API_JAR%" "%%~fF"
-    if errorlevel 1 (
-        set "ERR=1"
-        echo Erreur pendant la compilation de "%%~fF"
-        goto :endjavacloop
-    )
+    set "JAVA_FILES=!JAVA_FILES! "%%F""
 )
-:endjavacloop
-endlocal & set "ERR=%ERR%" & set "FILE_COUNT=%FILE_COUNT%"
 if "%FILE_COUNT%"=="0" (
     echo Aucune source Java trouvee dans "%SRC_DIR%".
     exit /b 1
 )
-if "%ERR%"=="1" (
-    echo Erreur de compilation detectee.
+
+:: Compiler tous les fichiers .java en une seule commande
+echo Lancement de javac...
+javac -d "%BUILD_DIR%\classes" -classpath "%CLASSPATH%" %JAVA_FILES%
+if errorlevel 1 (
+    echo Erreur pendant la compilation.
     exit /b 1
 )
+echo Compilation terminee avec succes.
 
 :: Créer le JAR contenant les classes compilées
 pushd "%BUILD_DIR%\classes"
 jar -cvf "%~dp0%JAR_NAME%" * > nul
 popd
 
-endlocal
 echo JAR genere: %~dp0%JAR_NAME%
+endlocal
+exit /b 0
