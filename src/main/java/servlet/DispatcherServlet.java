@@ -6,9 +6,12 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import servlet.util.ControllerInfo;
+import servlet.models.ModelView;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Map;
 
 public class DispatcherServlet extends HttpServlet {
@@ -43,7 +46,29 @@ public class DispatcherServlet extends HttpServlet {
                 resp.setContentType("text/plain");
                 PrintWriter out = resp.getWriter();
                 out.println("Controller: " + info.getControllerClass().getName());
-                out.println("Method: " + info.getMethod().getName());
+                out.println("Method name: " + info.getMethod().getName());
+
+                // Valeur de retour de la méthode 
+                Method methodURL = info.getMethod();
+                try {
+                    Object controllerNewInstance = info.getControllerClass().getDeclaredConstructor().newInstance();
+                    Object returnObject = methodURL.invoke(controllerNewInstance);
+
+                    // Type de retour String 
+                    if(returnObject instanceof String) {
+                        out.println("Retour de la méthode du controller (String) : " + returnObject);
+
+                    } else if (returnObject instanceof ModelView) {
+                        ModelView mv = (ModelView) returnObject;
+                        out.println("Retour de la méthode du controller (ModelView) : " + mv.toString());
+                    } else {
+                        out.println("Le type de retour de la méthode du controller n'est ni de type ModelView ni String!");
+                    }
+                } catch (InstantiationException | IllegalArgumentException | NoSuchMethodException | SecurityException e) {
+                    System.out.println("Erreur lors de la création de l'instance du controller : " + e.getMessage());
+                } catch (IllegalAccessException | InvocationTargetException e) {
+                    System.out.println("Erreur lors de l'invocation de la méthode ou du controller : " + e.getMessage());
+                }
             } else {
                 // Ni statique ni mapping : 404 custom
                 customServe(req, resp);
@@ -72,5 +97,15 @@ public class DispatcherServlet extends HttpServlet {
 
     private void defaultServe(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         defaultDispatcher.forward(req, resp);
+    }
+
+    @Override
+    public void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        service(req, resp);
+    }
+
+    @Override
+    public void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        service(req, resp);
     }
 }
