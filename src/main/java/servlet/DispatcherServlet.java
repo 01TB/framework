@@ -58,6 +58,7 @@ public class DispatcherServlet extends HttpServlet {
                         resp.setContentType("text/plain");
                         out.println("Retour de la méthode du controller (String) : " + returnObject);
                     } else if (returnObject instanceof ModelView) { // Type de retour ModelView
+                        resp.setContentType("text/html");
                         ModelView mv = (ModelView) returnObject;
                         RequestDispatcher dispatcher = req.getRequestDispatcher("/" + mv.getView());
                         dispatcher.forward(req, resp);
