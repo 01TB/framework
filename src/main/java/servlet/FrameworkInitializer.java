@@ -6,6 +6,7 @@ import jakarta.servlet.ServletContextListener;
 import servlet.annotation.Controller;
 import servlet.annotation.URLMapping;
 import servlet.util.ControllerInfo;
+import servlet.util.PathPattern;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -18,7 +19,7 @@ public class FrameworkInitializer implements ServletContextListener {
     public void contextInitialized(ServletContextEvent sce) {
         ServletContext context = sce.getServletContext();
         Set<Class<?>> allClasses = scanClasses(context);
-        Map<String, ControllerInfo> urlMap = new HashMap<>();
+        Map<PathPattern, ControllerInfo> urlMap = new HashMap<>();
 
         for (Class<?> clazz : allClasses) {
             if (clazz.isAnnotationPresent(Controller.class)) {
@@ -29,13 +30,16 @@ public class FrameworkInitializer implements ServletContextListener {
                     if (method.isAnnotationPresent(URLMapping.class)) {
                         URLMapping mappingAnno = method.getAnnotation(URLMapping.class);
                         String url = normalizePath(mappingAnno.url());
-                        String fullUrl = basePath + url;
-                        urlMap.put(fullUrl, new ControllerInfo(clazz, method));
+                        String fullUrl = normalizePath(basePath + url);
+
+                        PathPattern pattern = new PathPattern(fullUrl);
+                        ControllerInfo info = new ControllerInfo(clazz, method, fullUrl);
+                        urlMap.put(pattern, info);
                     }
                 }
             }
         }
-
+        
         // Stocker la map dans le contexte pour l'utiliser plus tard
         context.setAttribute("urlMap", urlMap);
     }

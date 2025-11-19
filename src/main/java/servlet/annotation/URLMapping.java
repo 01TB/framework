@@ -11,3 +11,4 @@ import java.lang.annotation.ElementType;
 public @interface URLMapping {
     String url() default "/";
 }
+

@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import servlet.util.ControllerInfo;
+import servlet.util.PathPattern;
 import servlet.models.ModelView;
 
 import java.io.IOException;
@@ -38,17 +39,52 @@ public class DispatcherServlet extends HttpServlet {
         } else {
             // Pas de ressource statique : vérifier les mappings de controllers
             @SuppressWarnings("unchecked")
-            Map<String, ControllerInfo> urlMap = (Map<String, ControllerInfo>) getServletContext().getAttribute("urlMap");
+            Map<PathPattern, ControllerInfo> urlMap = 
+                (Map<PathPattern, ControllerInfo>) getServletContext().getAttribute("urlMap");
 
-            ControllerInfo info = urlMap.get(path);
+            ControllerInfo info = null;
+            Map<String, String> pathParams = null;
+
+            for (Map.Entry<PathPattern, ControllerInfo> entry : urlMap.entrySet()) {
+                PathPattern pattern = entry.getKey();
+                if (pattern.matches(path)) {
+                    info = entry.getValue();
+                    pathParams = pattern.extractParameters(path);
+                    break;
+                }
+            }
+            
             if (info != null) {
                 // Mapping trouvé : afficher infos controller/méthode                
 
                 // Valeur de retour de la méthode 
                 Method methodURL = info.getMethod();
                 try {
-                    Object controllerNewInstance = info.getControllerClass().getDeclaredConstructor().newInstance();
-                    Object returnObject = methodURL.invoke(controllerNewInstance);
+                    Object controllerInstance = info.getControllerClass().getDeclaredConstructor().newInstance();
+
+                    // Préparer les arguments pour la méthode
+                    var methodParams = methodURL.getParameters();
+                    Object[] args = new Object[methodParams.length];
+
+                    for (int i = 0; i < methodParams.length; i++) {
+                        var param = methodParams[i];
+                        if (param.isAnnotationPresent(servlet.annotation.PathParam.class)) {
+                            String name = param.getAnnotation(servlet.annotation.PathParam.class).value();
+                            String value = pathParams.get(name);
+                            // Conversion basique (String → int si besoin)
+                            if (param.getType() == int.class || param.getType() == Integer.class) {
+                                args[i] = Integer.parseInt(value);
+                            } else if (param.getType() == long.class || param.getType() == Long.class) {
+                                args[i] = Long.parseLong(value);
+                            } else {
+                                args[i] = value;
+                            }
+                        } else {
+                            args[i] = null; // ou gérer @RequestParam plus tard
+                        }
+                    }
+
+                    Object returnObject = methodURL.invoke(controllerInstance, args);
                     
                     if(returnObject instanceof String) {    // Type de retour String 
                         resp.setContentType("text/plain;charset=UTF-8");
@@ -58,13 +94,7 @@ public class DispatcherServlet extends HttpServlet {
                         out.println("Retour de la méthode du controller (String) : " + returnObject);
                     } else if (returnObject instanceof ModelView) { // Type de retour ModelView
                         ModelView mv = (ModelView) returnObject;
-                        for(String key : mv.getData().keySet()) {
-                            req.setAttribute(key, mv.getData().get(key));
-                        }
-                        resp.setContentType("text/html;charset=UTF-8");
-                        resp.setCharacterEncoding("UTF-8");
-                        RequestDispatcher dispatcher = req.getRequestDispatcher("/" + mv.getView());
-                        dispatcher.forward(req, resp);
+                        processModelView(req, resp, mv);
                     } else {
                         PrintWriter out = resp.getWriter();
                         resp.setContentType("text/plain;charset=UTF-8");
@@ -81,6 +111,17 @@ public class DispatcherServlet extends HttpServlet {
             }
         }
     }
+
+    private void processModelView(HttpServletRequest req, HttpServletResponse resp, ModelView mv) throws ServletException, IOException {
+        for (String key : mv.getData().keySet()) {
+            req.setAttribute(key, mv.getData().get(key));
+        }
+        resp.setContentType("text/html;charset=UTF-8");
+        resp.setCharacterEncoding("UTF-8");
+        RequestDispatcher dispatcher = req.getRequestDispatcher("/" + mv.getView());
+        dispatcher.forward(req, resp);
+    }
+
 
     private void customServe(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         try (PrintWriter out = resp.getWriter()) {
