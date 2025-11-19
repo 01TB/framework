@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.ArrayList;
 
 public class PathPattern {
     private final Pattern regex;
@@ -11,7 +12,7 @@ public class PathPattern {
 
     public PathPattern(String path) {
         String regexStr = path;
-        var names = new java.util.ArrayList<String>();
+        ArrayList<String> names = new ArrayList<String>();
 
         // Transformer {id} → (?<id>[^/]+)
         Matcher matcher = Pattern.compile("\\{([^}]+)\\}").matcher(path);
