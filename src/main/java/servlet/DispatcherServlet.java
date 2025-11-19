@@ -75,7 +75,7 @@ public class DispatcherServlet extends HttpServlet {
                         Object argValue = null;
 
                         if (param.isAnnotationPresent(servlet.annotation.PathParam.class)) {
-                            // @PathParam  
+                            // @PathParam fonctionnant
                             String name = param.getAnnotation(servlet.annotation.PathParam.class).value();
                             String value = pathParams.get(name);
 
