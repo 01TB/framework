@@ -8,12 +8,15 @@ import jakarta.servlet.http.HttpServletResponse;
 import servlet.util.ControllerInfo;
 import servlet.util.PathPattern;
 import servlet.models.ModelView;
+import servlet.annotation.PathParam;
 
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.Map;
+import java.util.Map.Entry;
 
 public class DispatcherServlet extends HttpServlet {
 
@@ -45,7 +48,7 @@ public class DispatcherServlet extends HttpServlet {
             ControllerInfo info = null;
             Map<String, String> pathParams = null;
 
-            for (Map.Entry<PathPattern, ControllerInfo> entry : urlMap.entrySet()) {
+            for (Entry<PathPattern, ControllerInfo> entry : urlMap.entrySet()) {
                 PathPattern pattern = entry.getKey();
                 if (pattern.matches(path)) {
                     info = entry.getValue();
@@ -63,13 +66,13 @@ public class DispatcherServlet extends HttpServlet {
                     Object controllerInstance = info.getControllerClass().getDeclaredConstructor().newInstance();
 
                     // Préparer les arguments pour la méthode
-                    var methodParams = methodURL.getParameters();
+                    Parameter[] methodParams = methodURL.getParameters();
                     Object[] args = new Object[methodParams.length];
 
                     for (int i = 0; i < methodParams.length; i++) {
-                        var param = methodParams[i];
-                        if (param.isAnnotationPresent(servlet.annotation.PathParam.class)) {
-                            String name = param.getAnnotation(servlet.annotation.PathParam.class).value();
+                        Parameter param = methodParams[i];
+                        if (param.isAnnotationPresent(PathParam.class)) {
+                            String name = param.getAnnotation(PathParam.class).value();
                             String value = pathParams.get(name);
                             // Conversion basique (String → int si besoin)
                             if (param.getType() == int.class || param.getType() == Integer.class) {
@@ -81,6 +84,7 @@ public class DispatcherServlet extends HttpServlet {
                             }
                         } else {
                             args[i] = null; // ou gérer @RequestParam plus tard
+                            System.out.println("\n\n\nParamètre non annoté avec @RequestParam dans la méthode du controller.\n\n\n");
                         }
                     }
 
