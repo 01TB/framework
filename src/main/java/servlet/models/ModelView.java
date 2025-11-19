@@ -1,5 +1,6 @@
 package servlet.models;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class ModelView {
@@ -10,6 +11,7 @@ public class ModelView {
 
     public ModelView(String view) {
         this.view = view;
+        this.data = new HashMap<String,Object>();
     }
 
     public String getView() {
