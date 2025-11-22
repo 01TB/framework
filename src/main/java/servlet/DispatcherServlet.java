@@ -164,15 +164,16 @@ public class DispatcherServlet extends HttpServlet {
     private void customServe(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         try (PrintWriter out = resp.getWriter()) {
             String uri = req.getRequestURI();
+            String httpMethod = req.getMethod();
             String responseBody = """
                 <html>
                     <head><title>Resource Not Found</title></head>
                     <body>
                         <h1>Unknown resource</h1>
-                        <p>The requested URL was not found: <strong>%s</strong></p>
+                        <p>The requested URL was not found: <strong>%s</strong> [%s]</p>
                     </body>
                 </html>
-                """.formatted(uri);
+                """.formatted(uri,httpMethod);
 
             resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
             resp.setContentType("text/html;charset=UTF-8");
