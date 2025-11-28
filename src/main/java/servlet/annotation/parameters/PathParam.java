@@ -1,4 +1,4 @@
-package servlet.annotation;
+package servlet.annotation.parameters;
 
 import java.lang.annotation.*;
 

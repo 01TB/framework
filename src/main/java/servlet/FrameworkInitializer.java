@@ -4,7 +4,11 @@ import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 import servlet.annotation.Controller;
-import servlet.annotation.URLMapping;
+import servlet.annotation.mappings.DeleteMapping;
+import servlet.annotation.mappings.GetMapping;
+import servlet.annotation.mappings.PostMapping;
+import servlet.annotation.mappings.PutMapping;
+import servlet.annotation.mappings.URLMapping;
 import servlet.util.ControllerInfo;
 import servlet.util.PathPattern;
 
@@ -28,13 +32,24 @@ public class FrameworkInitializer implements ServletContextListener {
 
                 for (Method method : clazz.getDeclaredMethods()) {
                     if (method.isAnnotationPresent(URLMapping.class)) {
-                        URLMapping mappingAnno = method.getAnnotation(URLMapping.class);
-                        String url = normalizePath(mappingAnno.url());
-                        String fullUrl = normalizePath(basePath + url);
-
-                        PathPattern pattern = new PathPattern(fullUrl);
-                        ControllerInfo info = new ControllerInfo(clazz, method, fullUrl);
-                        urlMap.put(pattern, info);
+                        String url = method.getAnnotation(URLMapping.class).url();
+                        registerMapping(method, "GET", basePath, normalizePath(url), clazz, urlMap); // ou toutes les méthodes
+                    }
+                    if (method.isAnnotationPresent(GetMapping.class)) {
+                        String url = method.getAnnotation(GetMapping.class).url();
+                        registerMapping(method, "GET", basePath, normalizePath(url), clazz, urlMap);
+                    }
+                    if (method.isAnnotationPresent(PostMapping.class)) {
+                        String url = method.getAnnotation(PostMapping.class).url();
+                        registerMapping(method, "POST", basePath, normalizePath(url), clazz, urlMap);
+                    }
+                    if (method.isAnnotationPresent(PutMapping.class)) {
+                        String url = method.getAnnotation(PutMapping.class).url();
+                        registerMapping(method, "PUT", basePath, normalizePath(url), clazz, urlMap);
+                    }
+                    if (method.isAnnotationPresent(DeleteMapping.class)) {
+                        String url = method.getAnnotation(DeleteMapping.class).url();
+                        registerMapping(method, "DELETE", basePath, normalizePath(url), clazz, urlMap);
                     }
                 }
             }
@@ -42,6 +57,21 @@ public class FrameworkInitializer implements ServletContextListener {
         
         // Stocker la map dans le contexte pour l'utiliser plus tard
         context.setAttribute("urlMap", urlMap);
+    }
+
+    private void registerMapping(
+        Method method, 
+        String httpMethod, 
+        String basePath, 
+        String methodPath,                      
+        Class<?> clazz, 
+        Map<PathPattern, ControllerInfo> urlMap) {
+            String fullUrl = normalizePath(basePath + methodPath);
+            PathPattern pattern = new PathPattern(fullUrl,httpMethod);
+            ControllerInfo info = new ControllerInfo(clazz, method, pattern);
+            
+            // Ajout dans la map
+            urlMap.put(pattern, info);
     }
 
     @Override

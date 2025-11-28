@@ -7,9 +7,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import servlet.util.ControllerInfo;
 import servlet.util.PathPattern;
+import servlet.annotation.parameters.PathParam;
+import servlet.annotation.parameters.RequestParam;
 import servlet.models.ModelView;
-import servlet.annotation.PathParam;
-import servlet.annotation.RequestParam;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -31,6 +31,7 @@ public class DispatcherServlet extends HttpServlet {
     @Override
     protected void service(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         String path = req.getRequestURI().substring(req.getContextPath().length());
+        String httpMethod = req.getMethod(); // GET, POST, PUT, DELETE
         if (path.isEmpty()) {
             path = "/"; // Gérer la racine
         }
@@ -42,7 +43,6 @@ public class DispatcherServlet extends HttpServlet {
             defaultServe(req, resp);
         } else {
             // Pas de ressource statique : vérifier les mappings de controllers
-            @SuppressWarnings("unchecked")
             Map<PathPattern, ControllerInfo> urlMap = 
                 (Map<PathPattern, ControllerInfo>) getServletContext().getAttribute("urlMap");
 
@@ -51,7 +51,7 @@ public class DispatcherServlet extends HttpServlet {
 
             for (Entry<PathPattern, ControllerInfo> entry : urlMap.entrySet()) {
                 PathPattern pattern = entry.getKey();
-                if (pattern.matches(path)) {
+                if (pattern.matches(path,httpMethod)) {
                     info = entry.getValue();
                     pathParams = pattern.extractParameters(path);
                     break;
@@ -74,18 +74,18 @@ public class DispatcherServlet extends HttpServlet {
                         var param = methodParams[i];
                         Object argValue = null;
 
-                        if (param.isAnnotationPresent(servlet.annotation.PathParam.class)) {
+                        if (param.isAnnotationPresent(PathParam.class)) {
                             // @PathParam fonctionnant
-                            String name = param.getAnnotation(servlet.annotation.PathParam.class).value();
+                            String name = param.getAnnotation(PathParam.class).value();
                             String value = pathParams.get(name);
 
                             if (value != null) {
                                 argValue = convert(value, param.getType());
                             }
 
-                        } else if (param.isAnnotationPresent(servlet.annotation.RequestParam.class)) {
+                        } else if (param.isAnnotationPresent(RequestParam.class)) {
                             // @RequestParam
-                            String paramName = param.getAnnotation(servlet.annotation.RequestParam.class).value();
+                            String paramName = param.getAnnotation(RequestParam.class).value();
                             String value = req.getParameter(paramName);  // <-- vient du formulaire ou query string
 
                             if (value != null && !value.isEmpty()) {
@@ -164,15 +164,16 @@ public class DispatcherServlet extends HttpServlet {
     private void customServe(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         try (PrintWriter out = resp.getWriter()) {
             String uri = req.getRequestURI();
+            String httpMethod = req.getMethod();
             String responseBody = """
                 <html>
                     <head><title>Resource Not Found</title></head>
                     <body>
                         <h1>Unknown resource</h1>
-                        <p>The requested URL was not found: <strong>%s</strong></p>
+                        <p>The requested URL was not found: <strong>%s</strong> [%s]</p>
                     </body>
                 </html>
-                """.formatted(uri);
+                """.formatted(uri,httpMethod);
 
             resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
             resp.setContentType("text/html;charset=UTF-8");
