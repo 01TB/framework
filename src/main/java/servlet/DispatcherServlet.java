@@ -16,6 +16,9 @@ import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -71,8 +74,9 @@ public class DispatcherServlet extends HttpServlet {
                     Object[] args = new Object[methodParams.length];
 
                     for (int i = 0; i < methodParams.length; i++) {
-                        var param = methodParams[i];
+                        Parameter param = methodParams[i];
                         Object argValue = null;
+                        
 
                         if (param.isAnnotationPresent(PathParam.class)) {
                             // @PathParam fonctionnant
@@ -94,6 +98,35 @@ public class DispatcherServlet extends HttpServlet {
                                 // Gérer required + defaultValue plus tard
                                 if (param.getType() == String.class) {
                                     argValue = "";
+                                }
+                            }
+                        } else if (param.getType() == Map.class) {
+                            // Si l'argument de la méthode d'action est de class java.util.Map
+                            Type genericType = param.getParameterizedType();
+                            if (genericType instanceof ParameterizedType) {
+                                ParameterizedType parameterizedType = (ParameterizedType) genericType;
+                                Type[] typeArgs = parameterizedType.getActualTypeArguments();
+                                // Si il y'a les 2 types génériques <String,Object> dans le Map<String,Object>
+                                if(typeArgs.length == 2 && typeArgs[0] == String.class && typeArgs[1] == Object.class) {
+                                    // Réception de tous les paramètres de la requête dans une Map<String,String[]>
+                                    Map<String, String[]> parameterMap = req.getParameterMap();
+                                    Map<String, Object> paramMap = new HashMap<>();
+                                    for (Entry<String, String[]> entry : parameterMap.entrySet()) {
+                                        String key = entry.getKey();
+                                        String[] values = entry.getValue();
+                                        if(values != null && values.length == 1) {
+                                            paramMap.put(key, values[0]); // Valeur unique
+                                        } else {
+                                            paramMap.put(key, values); // Valeurs multiples
+                                        }
+                                        System.out.println("Clé : " + key + " = [" + String.join(",", values) + "]");
+                                    }
+                                    argValue = paramMap;
+                                    Map<String, Object> debugMap = (Map<String, Object>) argValue;
+                                    for (String key : debugMap.keySet()) {
+                                        Object val = debugMap.get(key);
+                                        System.out.print("Clé dans Map<String,Object> : " + key + " = " + val);
+                                    }
                                 }
                             }
                         }
