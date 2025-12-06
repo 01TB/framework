@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import servlet.util.ControllerInfo;
 import servlet.util.PathPattern;
+import servlet.util.cast.UtilCast;
 import servlet.annotation.parameters.PathParam;
 import servlet.annotation.parameters.RequestParam;
 import servlet.models.ModelView;
@@ -18,7 +19,10 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -84,7 +88,7 @@ public class DispatcherServlet extends HttpServlet {
                             String value = pathParams.get(name);
 
                             if (value != null) {
-                                argValue = convert(value, param.getType());
+                                argValue = UtilCast.convert(value, param.getType());
                             }
 
                         } else if (param.isAnnotationPresent(RequestParam.class)) {
@@ -93,7 +97,7 @@ public class DispatcherServlet extends HttpServlet {
                             String value = req.getParameter(paramName);  // <-- vient du formulaire ou query string
 
                             if (value != null && !value.isEmpty()) {
-                                argValue = convert(value, param.getType());
+                                argValue = UtilCast.convert(value, param.getType());
                             } else {
                                 // Gérer required + defaultValue plus tard
                                 if (param.getType() == String.class) {
@@ -129,6 +133,55 @@ public class DispatcherServlet extends HttpServlet {
                                     }
                                 }
                             }
+                        } else {
+                            // === GESTION OBJET COMPLEXE (avec support tableaux via []) ===
+                            Class<?> paramType = param.getType();
+                            if (paramType.getName().startsWith("java.") || paramType.isPrimitive() || 
+                                paramType == LocalDate.class || paramType.isEnum()) {
+                                continue;
+                            }
+
+                            try {
+                                Object instance = paramType.getDeclaredConstructor().newInstance();
+                                Map<String, String[]> parameterMap = req.getParameterMap();
+
+                                for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
+                                    String key = entry.getKey();
+                                    String[] values = entry.getValue();
+                                    if (values == null || values.length == 0) continue;
+
+                                    if (key.contains("[]")) {
+                                        // === CAS TABLEAU : couleurs[] → String[] couleurs ===
+                                        String arrayKey = key.replace("[]", "");
+                                        String[] nonEmptyValues = Arrays.stream(values)
+                                            .filter(v -> v != null && !v.isEmpty())
+                                            .toArray(String[]::new);
+
+                                        if (nonEmptyValues.length > 0) {
+                                            UtilCast.setPropertyValue(instance, arrayKey, nonEmptyValues, paramType);
+                                        }
+                                    } else if (values.length == 1) {
+                                        // === CAS SIMPLE : une seule valeur ===
+                                        String value = values[0];
+                                        if (value != null && !value.isEmpty()) {
+                                            UtilCast.setPropertyValue(instance, key, value, paramType);
+                                        }
+                                    } else {
+                                        // === CAS MULTI (rare, mais possible) sans [] : on prend la première valeur ===
+                                        String value = values[0];
+                                        if (value != null && !value.isEmpty()) {
+                                            UtilCast.setPropertyValue(instance, key, value, paramType);
+                                        }
+                                    }
+                                }
+
+                                argValue = instance;
+
+                            } catch (Exception e) {
+                                System.err.println("Erreur binding objet complexe : " + paramType.getName() + " → " + e.getMessage());
+                                e.printStackTrace();
+                                argValue = null;
+                            }
                         }
 
                         args[i] = argValue;
@@ -160,24 +213,6 @@ public class DispatcherServlet extends HttpServlet {
                 customServe(req, resp);
             }
         }
-    }
-
-    private Object convert(String value, Class<?> targetType) {
-        if (value == null) return null;
-
-        if (targetType == String.class) {
-            return value;
-        } else if (targetType == int.class || targetType == Integer.class) {
-            return Integer.parseInt(value);
-        } else if (targetType == long.class || targetType == Long.class) {
-            return Long.parseLong(value);
-        } else if (targetType == double.class || targetType == Double.class) {
-            return Double.parseDouble(value);
-        } else if (targetType == boolean.class || targetType == Boolean.class) {
-            return Boolean.parseBoolean(value) || "on".equalsIgnoreCase(value) || "true".equalsIgnoreCase(value);
-        }
-
-        return value; // fallback
     }
 
     // Affectation des paramètres du ModelView aux attributs responses pour le dispatch
