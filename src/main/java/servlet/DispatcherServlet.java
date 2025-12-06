@@ -10,7 +10,12 @@ import servlet.util.PathPattern;
 import servlet.util.cast.UtilCast;
 import servlet.annotation.parameters.PathParam;
 import servlet.annotation.parameters.RequestParam;
+import servlet.models.ApiResponse;
 import servlet.models.ModelView;
+import servlet.annotation.json.ResponseJSON;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -22,7 +27,6 @@ import java.lang.reflect.Type;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -189,7 +193,49 @@ public class DispatcherServlet extends HttpServlet {
 
                     Object returnObject = methodURL.invoke(controllerInstance, args);
                     
-                    if(returnObject instanceof String) {    // Type de retour String 
+
+                    if (methodURL.isAnnotationPresent(ResponseJSON.class)) {  // Si l'annotation @ResponseJSON est présente
+                        
+                        resp.setContentType("application/json;charset=UTF-8");
+                        resp.setCharacterEncoding("UTF-8");
+                        
+                        PrintWriter out = resp.getWriter();
+                        ObjectMapper mapper = new ObjectMapper();
+
+                        // Mettre le JSON en format indenté 
+                        mapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+                        try {
+                            ApiResponse<Object> apiResponse;
+
+                            if (returnObject == null) {
+                                apiResponse = new ApiResponse<>("success", 200, null);
+                            } else if (returnObject instanceof ModelView) {
+                                ModelView mv = (ModelView) returnObject;
+                                apiResponse = new ApiResponse<>("success", 200, mv.getData());
+                            } else {
+                                apiResponse = new ApiResponse<>("success", 200, returnObject);
+                            }
+
+                            String json = mapper.writeValueAsString(apiResponse);
+                            out.print(json);
+
+                        } catch (Exception e) {
+                            // En cas d'erreur de sérialisation → réponse d'erreur
+                            ApiResponse<String> error = new ApiResponse<>("error", 500, 
+                                "Erreur serveur : " + e.getMessage());
+                            try {
+                                out.print(mapper.writeValueAsString(error));
+                                resp.setStatus(500);
+                            } catch (Exception ex) {
+                                out.print("{\"status\":\"error\",\"code\":500,\"message\":\"Erreur génération JSON.\"}");
+                            }
+                        }
+                        
+                        out.flush();
+                        return; // Important : sortir après JSON
+
+                    } else if(returnObject instanceof String) {    // Type de retour String 
                         resp.setContentType("text/plain;charset=UTF-8");
                         PrintWriter out = resp.getWriter();
                         out.println("Controller: " + info.getControllerClass().getName());

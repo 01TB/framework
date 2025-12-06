@@ -1,6 +1,8 @@
 {
   "java.project.sourcePaths": ["src\\main\\java"],
   "java.project.referencedLibraries": [
+    "lib\\jackson-core-2.20.1.jar",
+    "d:\\Dossier Tsitohaina\\ITU\\L3\\Framework\\framework\\framework\\lib\\jackson-databind-2.20.1.jar",
     "d:\\Dossier Tsitohaina\\ITU\\L3\\Framework\\framework\\framework\\lib\\servlet-api.jar"
   ]
 }
