@@ -2,7 +2,6 @@
 package servlet.util;
 
 import servlet.annotation.parameters.PathParam;
-import servlet.util.PathPattern;
 
 import java.lang.reflect.Method;
 

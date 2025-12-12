@@ -14,7 +14,6 @@ import servlet.util.PathPattern;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
-import java.net.URL;
 import java.util.*;
 
 public class FrameworkInitializer implements ServletContextListener {

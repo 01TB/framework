@@ -1,5 +1,7 @@
 package servlet.util.cast;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -30,85 +32,91 @@ public class UtilCast {
     }
     
     public static void setPropertyValue(Object root, String propertyPath, Object rawValue, Class<?> rootType) {
+        if (root == null || propertyPath == null || propertyPath.isEmpty()) return;
+
         String[] parts = propertyPath.split("\\.");
-        //  dept.nom -> { "dept", "nom" } 
         Object current = root;
         Class<?> currentType = rootType;
 
-        // Naviguer jusqu'à l'avant-dernier niveau
-        for (int i = 0; i < parts.length - 1; i++) {
-            String part = parts[i];
-            String cap = Character.toUpperCase(part.charAt(0)) + part.substring(1);
-
-            try {
-                Method getter = currentType.getMethod("get" + cap);
-                Object nested = getter.invoke(current);
-                if (nested == null) {
-                    Class<?> nestedType = getter.getReturnType();
-                    nested = nestedType.getDeclaredConstructor().newInstance();
-                    currentType.getMethod("set" + cap, nestedType).invoke(current, nested);
-                }
-                current = nested;
-                currentType = nested.getClass();
-            } catch (Exception e) {
-                return;
-            }
-        }
-
-        // Dernier niveau : setter
-        String leaf = parts[parts.length - 1];
-        String cap = Character.toUpperCase(leaf.charAt(0)) + leaf.substring(1);
-        String setterName = "set" + cap;
-
         try {
-            Method setter = null;
-            Class<?> targetType = null;
+            // === Naviguer jusqu'à l'avant-dernier niveau ===
+            for (int i = 0; i < parts.length - 1; i++) {
+                String part = parts[i];
+                Field field = findField(currentType, part);
+                if (field == null) return;
 
-            // Chercher le bon setter
-            for (Method m : currentType.getMethods()) {
-                if (m.getName().equals(setterName) && m.getParameterCount() == 1) {
-                    Class<?> paramType = m.getParameterTypes()[0];
+                field.setAccessible(true);
+                Object nested = field.get(current);
 
-                    if (rawValue instanceof String && paramType.isArray() && paramType.getComponentType() == String.class) {
-                        // String → String[]
-                        if (setter == null) {
-                            setter = m;
-                            targetType = paramType;
-                        }
-                    } else if (rawValue instanceof String[] && paramType.isArray() && paramType.getComponentType() == String.class) {
-                        setter = m;
-                        targetType = paramType;
-                        break;
-                    } else if (rawValue instanceof String && !paramType.isArray()) {
-                        setter = m;
-                        targetType = paramType;
-                        break;
-                    } else if (rawValue instanceof String[] && paramType == List.class) {
-                        setter = m;
-                        targetType = paramType;
-                        break;
-                    }
+                if (nested == null) {
+                    Constructor<?> constructor = field.getType().getDeclaredConstructor();
+                    constructor.setAccessible(true);
+                    nested = constructor.newInstance();
+                    field.set(current, nested);
                 }
+
+                current = nested;
+                currentType = field.getType();
             }
 
-            if (setter == null) return;
+            // === Dernier niveau : assigner la valeur ===
+            String leaf = parts[parts.length - 1];
+            Field targetField = findField(currentType, leaf);
+            if (targetField == null) return;
 
-            Object finalValue;
-            if (rawValue instanceof String[] arr && targetType == List.class) {
-                finalValue = Arrays.asList(arr);
-            } else if (rawValue instanceof String str && targetType.isArray()) {
-                finalValue = new String[] { str };
-            } else if (rawValue instanceof String str) {
-                finalValue = UtilCast.convert(str, targetType);
-            } else {
-                finalValue = rawValue;
-            }
-
-            setter.invoke(current, finalValue);
+            targetField.setAccessible(true);
+            Object finalValue = convertValue(rawValue, targetField.getType());
+            targetField.set(current, finalValue);
 
         } catch (Exception e) {
-            System.err.println("Erreur setter : " + propertyPath + " = " + rawValue);
+            System.err.println("Erreur lors de l'instanciation/assignation via champ : " + propertyPath + " = " + rawValue);
+            e.printStackTrace();
         }
+    }
+
+    // --- Méthodes utilitaires ---
+
+    private static Field findField(Class<?> clazz, String fieldName) {
+        String capped = Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
+        // Essayer les noms possibles : nom, nomAvecMajuscule, _nom, etc.
+        String[] candidates = { fieldName, capped, "_" + fieldName, "m" + capped };
+
+        for (String name : candidates) {
+            try {
+                return clazz.getDeclaredField(name);
+            } catch (NoSuchFieldException e) {
+                // Continuer
+            }
+        }
+
+        // Parcourir la hiérarchie
+        Class<?> superClass = clazz.getSuperclass();
+        if (superClass != null && superClass != Object.class) {
+            return findField(superClass, fieldName);
+        }
+        return null;
+    }
+
+    private static Object convertValue(Object rawValue, Class<?> targetType) {
+        if (rawValue == null) return null;
+
+        if (targetType.isArray() && targetType.getComponentType() == String.class) {
+            if (rawValue instanceof String s) {
+                return new String[]{s};
+            } else if (rawValue instanceof String[] arr) {
+                return arr;
+            }
+        }
+
+        if (targetType == List.class && rawValue instanceof String[]) {
+            return Arrays.asList((String[]) rawValue);
+        }
+
+        if (rawValue instanceof String str) {
+            return convert(str, targetType);
+        }
+
+        return rawValue;
     }
     
 }
