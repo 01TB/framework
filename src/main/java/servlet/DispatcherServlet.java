@@ -2,12 +2,16 @@ package servlet;
 
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.MultipartConfig;
+import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Part;
 import servlet.util.ControllerInfo;
 import servlet.util.PathPattern;
 import servlet.util.cast.UtilCast;
+import servlet.util.uploads.FileManager;
 import servlet.annotation.parameters.PathParam;
 import servlet.annotation.parameters.RequestParam;
 import servlet.models.ApiResponse;
@@ -24,8 +28,13 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -135,6 +144,29 @@ public class DispatcherServlet extends HttpServlet {
                                         Object val = debugMap.get(key);
                                         System.out.print("Clé dans Map<String,Object> : " + key + " = " + val);
                                     }
+                                // Si il y'a les 2 types génériques <String,byte[]> dans le Map<String,byte[]>
+                                } else if(typeArgs.length == 2 && typeArgs[0] == String.class && typeArgs[1] == byte[].class) {
+                                    // Réception de tous les paramètres Part de la requête dans une Collection<Part>
+                                    Collection<Part> parts = req.getParts();
+                                    Map<String, byte[]> paramMap = new HashMap<>();
+                                    for(Part part : parts) {
+                                        byte[] fileBytes = part.getInputStream().readAllBytes();
+                                        
+                                        // AJOUTE ÇA : Vérifie si c'est un vrai fichier
+                                        String fileName = FileManager.getFileName(part);  // appelle la méthode existante
+                                        if (fileName != null && !fileName.isEmpty()) {
+                                            FileManager.saveToDisk(req, part, fileBytes);  // Sauvegarde seulement les fichiers
+                                        }
+                                        
+                                        paramMap.put(part.getName(), fileBytes);  // Met dans la map (même les textes, mais en byte[])
+                                    }
+                                    argValue = paramMap;
+                                    Map<String, byte[]> debugMap = (Map<String, byte[]>) argValue;
+                                    for (String key : debugMap.keySet()) {
+                                        byte[] val = debugMap.get(key);
+                                        System.out.print("Clé dans Map<String,byte[]> : " + key + " = " + Arrays.toString(val));
+                                    }
+
                                 }
                             }
                         } else {
