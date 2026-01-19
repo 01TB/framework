@@ -17,6 +17,7 @@ import servlet.util.uploads.FileManager;
 import servlet.annotation.parameters.PathParam;
 import servlet.annotation.parameters.RequestParam;
 import servlet.annotation.parameters.SessionParam;
+import servlet.annotation.security.Authorized;
 import servlet.models.ApiResponse;
 import servlet.models.ModelView;
 import servlet.annotation.json.ResponseJSON;
@@ -143,6 +144,25 @@ public class DispatcherServlet extends HttpServlet {
 
         ControllerInfo info = mapping.getControllerInfo();
         Method method = info.getMethod();
+
+        if(method.isAnnotationPresent(Authorized.class)) {
+            Authorized authAnnotation = method.getAnnotation(Authorized.class);
+            String[] allowedRoles = authAnnotation.roles();
+
+            HttpSession session = req.getSession();
+            if (session == null || session.getAttribute("userRole") == null) {
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                resp.getWriter().println("Accès non autorisé : utilisateur non authentifié.");
+                return;
+            }
+
+            String userRole = (String) session.getAttribute("userRole");
+            if (allowedRoles.length > 0 && !Arrays.asList(allowedRoles).contains(userRole)) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                resp.getWriter().println("Accès refusé : rôle utilisateur insuffisant.");
+                return;
+            }
+        }
 
         try {
             // Création d'une instance du controller
@@ -585,8 +605,7 @@ public class DispatcherServlet extends HttpServlet {
         out.println("Le type de retour de la méthode du controller n'est ni de type ModelView ni String!");
     }
 
-    // Affectation des paramètres du ModelView aux attributs responses pour le
-    // dispatch
+    // Affectation des paramètres du ModelView aux attributs responses pour le dispatch
     private void processModelView(HttpServletRequest req, HttpServletResponse resp, ModelView mv, Method method)
             throws ServletException, IOException {
         if (!mv.getData().isEmpty()) {
@@ -626,8 +645,14 @@ public class DispatcherServlet extends HttpServlet {
         }
         resp.setContentType("text/html;charset=UTF-8");
         resp.setCharacterEncoding("UTF-8");
-        RequestDispatcher dispatcher = req.getRequestDispatcher("/" + mv.getView());
-        dispatcher.forward(req, resp);
+        if(mv.getView().startsWith("/")) {
+            // Redirection
+            resp.sendRedirect(req.getContextPath() + mv.getView());
+        } else {
+            // Dispatch
+            RequestDispatcher dispatcher = req.getRequestDispatcher("/" + mv.getView());
+            dispatcher.forward(req, resp);
+        }
     }
 
     /**

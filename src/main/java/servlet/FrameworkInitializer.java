@@ -53,6 +53,10 @@ public class FrameworkInitializer implements ServletContextListener {
                 }
             }
         }
+
+        // Stocker les rôles de sécurité dans le contexte
+        String[] roles = listRoles(context);
+        context.setAttribute("securityRoles", roles);
         
         // Stocker la map dans le contexte pour l'utiliser plus tard
         context.setAttribute("urlMap", urlMap);
@@ -117,5 +121,13 @@ public class FrameworkInitializer implements ServletContextListener {
         if (!path.startsWith("/")) path = "/" + path;
         if (path.endsWith("/")) path = path.substring(0, path.length() - 1);
         return path;
+    }
+
+    private String[] listRoles(ServletContext context) {
+        String rolesParam = context.getInitParameter("securityRoles");
+        if (rolesParam != null && !rolesParam.isEmpty()) {
+            return rolesParam.split(";");
+        }
+        return null;
     }
 }
