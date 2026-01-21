@@ -9,6 +9,10 @@ public class ModelView {
 
     private Map<String,Object> data;
 
+    public ModelView(){
+        this.data = new HashMap<String,Object>();
+    };
+
     public ModelView(String view) {
         this.view = view;
         this.data = new HashMap<String,Object>();

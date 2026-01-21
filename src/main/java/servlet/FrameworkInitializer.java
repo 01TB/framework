@@ -54,9 +54,13 @@ public class FrameworkInitializer implements ServletContextListener {
             }
         }
 
-        // Stocker les rôles de sécurité dans le contexte
-        String[] roles = listRoles(context);
-        context.setAttribute("securityRoles", roles);
+        // Stocker le nom de la variable de Map de session dans le contexte
+        String sessionDataKey = getSessionMapVariableName(context);
+        context.setAttribute("sessionDataKey", sessionDataKey);
+
+        // Stôcker la clé du rôle de l'utilisateur en session
+        String roleSessionKey = getRoleSessionKey(context);
+        context.setAttribute("sessionRoleKey", roleSessionKey);
         
         // Stocker la map dans le contexte pour l'utiliser plus tard
         context.setAttribute("urlMap", urlMap);
@@ -123,11 +127,13 @@ public class FrameworkInitializer implements ServletContextListener {
         return path;
     }
 
-    private String[] listRoles(ServletContext context) {
-        String rolesParam = context.getInitParameter("securityRoles");
-        if (rolesParam != null && !rolesParam.isEmpty()) {
-            return rolesParam.split(";");
-        }
-        return null;
+    private String getSessionMapVariableName(ServletContext context) {
+        String key = context.getInitParameter("sessionDataKey");
+        return (key != null && !key.isEmpty()) ? key : null;
+    }
+
+    private String getRoleSessionKey(ServletContext context) {
+        String key = context.getInitParameter("sessionRoleKey");
+        return (key != null && !key.isEmpty()) ? key : null;
     }
 }

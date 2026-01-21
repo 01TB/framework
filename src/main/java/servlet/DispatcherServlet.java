@@ -150,13 +150,14 @@ public class DispatcherServlet extends HttpServlet {
             String[] allowedRoles = authAnnotation.roles();
 
             HttpSession session = req.getSession();
-            if (session == null || session.getAttribute("userRole") == null) {
+            String sessionRoleKey = (String) getServletContext().getAttribute("sessionRoleKey");
+            if (session == null || session.getAttribute(sessionRoleKey) == null) {
                 resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 resp.getWriter().println("Accès non autorisé : utilisateur non authentifié.");
                 return;
             }
 
-            String userRole = (String) session.getAttribute("userRole");
+            String userRole = (String) session.getAttribute(sessionRoleKey);
             if (allowedRoles.length > 0 && !Arrays.asList(allowedRoles).contains(userRole)) {
                 resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 resp.getWriter().println("Accès refusé : rôle utilisateur insuffisant.");
@@ -617,7 +618,8 @@ public class DispatcherServlet extends HttpServlet {
                 System.out.println("\n Clé du ModelView : " + key + " = " + value);
 
                 // Vérifier si la clé correspond à un paramètre session Map<String,Object>
-                if (key.compareTo("sessionData") == 0 && value instanceof Map) {
+                String sessionDataKey = (String) getServletContext().getAttribute("sessionDataKey");
+                if (key.compareTo(sessionDataKey) == 0 && value instanceof Map) {
                     System.out.println("\n Variable de session trouvée dans le ModelView \n");
                     try {
                         Map<String, Object> dataMap = (Map<String, Object>) value;
