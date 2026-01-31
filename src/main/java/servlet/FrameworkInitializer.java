@@ -53,6 +53,14 @@ public class FrameworkInitializer implements ServletContextListener {
                 }
             }
         }
+
+        // Stocker le nom de la variable de Map de session dans le contexte
+        String sessionDataKey = getSessionMapVariableName(context);
+        context.setAttribute("sessionDataKey", sessionDataKey);
+
+        // Stôcker la clé du rôle de l'utilisateur en session
+        String roleSessionKey = getRoleSessionKey(context);
+        context.setAttribute("sessionRoleKey", roleSessionKey);
         
         // Stocker la map dans le contexte pour l'utiliser plus tard
         context.setAttribute("urlMap", urlMap);
@@ -117,5 +125,15 @@ public class FrameworkInitializer implements ServletContextListener {
         if (!path.startsWith("/")) path = "/" + path;
         if (path.endsWith("/")) path = path.substring(0, path.length() - 1);
         return path;
+    }
+
+    private String getSessionMapVariableName(ServletContext context) {
+        String key = context.getInitParameter("sessionDataKey");
+        return (key != null && !key.isEmpty()) ? key : null;
+    }
+
+    private String getRoleSessionKey(ServletContext context) {
+        String key = context.getInitParameter("sessionRoleKey");
+        return (key != null && !key.isEmpty()) ? key : null;
     }
 }
